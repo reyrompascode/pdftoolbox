@@ -3,9 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PDF Toolbox Pro - Merge & Split</title>
+    <title>Gemini PDF Ultimate</title>
     <link rel="stylesheet" href="style.css" />
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
@@ -14,7 +13,7 @@
   <body>
     <div class="container">
       <header>
-        <h1>PDF Toolbox</h1>
+        <h1>PDF Ultimate</h1>
         <button id="theme-toggle" class="theme-btn">🌙</button>
       </header>
 
@@ -32,12 +31,23 @@
       </div>
 
       <div id="drop-zone" class="drop-zone">
-        <div class="drop-content">
-          <p id="drop-text">
-            Tarik & Lepaskan file PDF (Merge: Banyak file | Split: 1 file)
-          </p>
-          <label for="pdf-input" class="btn-select">Pilih File</label>
-          <input type="file" id="pdf-input" accept=".pdf" multiple />
+        <p id="drop-text">Tarik & lepaskan file PDF di sini</p>
+        <label for="pdf-input" class="btn-select">Pilih File</label>
+        <input type="file" id="pdf-input" accept=".pdf" multiple />
+      </div>
+
+      <div id="extra-settings" class="extra-settings">
+        <div class="input-row">
+          <input
+            type="text"
+            id="watermark-text"
+            placeholder="Teks Watermark (Opsional)"
+          />
+          <input
+            type="password"
+            id="pdf-password"
+            placeholder="Set Password (Opsional)"
+          />
         </div>
       </div>
 
