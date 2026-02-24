@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Toolbox Pro - Merge & Split</title>
+    <link rel="stylesheet" href="style.css" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>PDF Toolbox</h1>
+        <button id="theme-toggle" class="theme-btn">🌙</button>
+      </header>
+
+      <div class="mode-tabs">
+        <button
+          id="tab-merge"
+          class="tab-btn active"
+          onclick="switchMode('merge')"
+        >
+          Merge
+        </button>
+        <button id="tab-split" class="tab-btn" onclick="switchMode('split')">
+          Split
+        </button>
+      </div>
+
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-content">
+          <p id="drop-text">
+            Tarik & Lepaskan file PDF (Merge: Banyak file | Split: 1 file)
+          </p>
+          <label for="pdf-input" class="btn-select">Pilih File</label>
+          <input type="file" id="pdf-input" accept=".pdf" multiple />
+        </div>
+      </div>
+
+      <ul id="file-list" class="file-list"></ul>
+
+      <button id="action-btn" class="btn-main" disabled>Gabungkan PDF</button>
+      <p id="status" class="status"></p>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
