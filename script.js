@@ -4,11 +4,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 let filesArray = [];
 let currentMode = "merge";
 
-const actionBtn = document.getElementById("action-btn");
-const fileListContainer = document.getElementById("file-list");
-const status = document.getElementById("status");
-
-// Switch Mode
+// UI Logic
 window.switchMode = (mode) => {
   currentMode = mode;
   document
@@ -17,26 +13,22 @@ window.switchMode = (mode) => {
   document
     .getElementById("tab-split")
     .classList.toggle("active", mode === "split");
-  actionBtn.innerText = mode === "merge" ? "Gabungkan PDF" : "Pecah PDF ke ZIP";
-  document.getElementById("drop-text").innerText =
-    mode === "merge"
-      ? "Tarik & Lepaskan beberapa file PDF"
-      : "Tarik & Lepaskan 1 file PDF untuk dipecah";
+  document.getElementById("extra-settings").style.display =
+    mode === "merge" ? "block" : "none";
+  document.getElementById("action-btn").innerText =
+    mode === "merge" ? "Gabungkan PDF" : "Pecah ke ZIP";
   filesArray = [];
   renderList();
 };
 
-// Thumbnail & Files
 async function handleFiles(files) {
-  const validFiles = Array.from(files).filter(
-    (f) => f.type === "application/pdf",
-  );
-  if (currentMode === "split" && filesArray.length + validFiles.length > 1) {
-    alert("Mode Split hanya mendukung 1 file saja.");
-    return;
-  }
-  for (let f of validFiles) {
+  const valid = Array.from(files).filter((f) => f.type === "application/pdf");
+  if (currentMode === "split" && filesArray.length + valid.length > 1)
+    return alert("Pilih 1 file saja untuk split.");
+
+  for (let f of valid) {
     f.tempId = Math.random().toString(36).substr(2, 9);
+    f.rotation = 0;
     f.thumb = await generateThumb(f);
     filesArray.push(f);
   }
@@ -56,69 +48,108 @@ async function generateThumb(file) {
   return canvas;
 }
 
-function renderList() {
-  fileListContainer.innerHTML = "";
-  filesArray.forEach((f) => {
-    const li = document.createElement("li");
-    li.className = "file-item";
-    li.dataset.id = f.tempId;
-    li.innerHTML = `<div class="thumb"></div><div class="info"><b>${f.name}</b>${(f.size / 1024).toFixed(0)} KB</div><button class="btn-del" onclick="removeFile('${f.tempId}')">✕</button>`;
-    li.querySelector(".thumb").appendChild(f.thumb.cloneNode(true));
-    fileListContainer.appendChild(li);
-  });
-  actionBtn.disabled =
-    currentMode === "merge" ? filesArray.length < 2 : filesArray.length !== 1;
-}
+window.rotateFile = (id) => {
+  const file = filesArray.find((f) => f.tempId === id);
+  file.rotation = (file.rotation + 90) % 360;
+  const canvas = document.querySelector(`[data-id="${id}"] canvas`);
+  canvas.style.transform = `rotate(${file.rotation}deg)`;
+};
 
 window.removeFile = (id) => {
   filesArray = filesArray.filter((f) => f.tempId !== id);
   renderList();
 };
 
-// Core Logic: Merge & Split
+function renderList() {
+  fileListContainer.innerHTML = "";
+  filesArray.forEach((f) => {
+    const li = document.createElement("li");
+    li.className = "file-item";
+    li.dataset.id = f.tempId;
+    li.innerHTML = `
+            <div class="thumb-box"></div>
+            <div class="info"><b>${f.name}</b></div>
+            <div class="controls">
+                <button class="btn-icon" onclick="rotateFile('${f.tempId}')" title="Putar">🔄</button>
+                <button class="btn-icon" onclick="removeFile('${f.tempId}')" style="color:red">✕</button>
+            </div>`;
+    li.querySelector(".thumb-box").appendChild(f.thumb);
+    f.thumb.style.transform = `rotate(${f.rotation}deg)`;
+    fileListContainer.appendChild(li);
+  });
+  actionBtn.disabled =
+    currentMode === "merge" ? filesArray.length < 2 : filesArray.length !== 1;
+}
+
+// Core Action
+const actionBtn = document.getElementById("action-btn");
+const fileListContainer = document.getElementById("file-list");
+const status = document.getElementById("status");
+
 actionBtn.addEventListener("click", async () => {
-  status.innerText = "⏳ Memproses...";
+  status.innerText = "⏳ Sedang memproses...";
   actionBtn.disabled = true;
   try {
     if (currentMode === "merge") {
       const merged = await PDFLib.PDFDocument.create();
+      const wmText = document.getElementById("watermark-text").value;
+      const password = document.getElementById("pdf-password").value;
+
       for (let f of filesArray) {
         const doc = await PDFLib.PDFDocument.load(await f.arrayBuffer());
         const pages = await merged.copyPages(doc, doc.getPageIndices());
-        pages.forEach((p) => merged.addPage(p));
+        pages.forEach((p) => {
+          p.setRotation(PDFLib.degrees(f.rotation));
+          if (wmText) {
+            const { width, height } = p.getSize();
+            p.drawText(wmText, {
+              x: 50,
+              y: height - 50,
+              size: 30,
+              opacity: 0.2,
+              color: PDFLib.rgb(0.5, 0.5, 0.5),
+            });
+          }
+          merged.addPage(p);
+        });
       }
-      download(await merged.save(), "combined.pdf", "application/pdf");
+      // Enkripsi (pdf-lib membutuhkan password via save options)
+      const pdfBytes = await merged.save({
+        userPassword: password || undefined,
+      });
+      download(pdfBytes, "merged.pdf", "application/pdf");
     } else {
       const zip = new JSZip();
       const mainDoc = await PDFLib.PDFDocument.load(
         await filesArray[0].arrayBuffer(),
       );
       for (let i = 0; i < mainDoc.getPageCount(); i++) {
-        const subDoc = await PDFLib.PDFDocument.create();
-        const [page] = await subDoc.copyPages(mainDoc, [i]);
-        subDoc.addPage(page);
-        zip.file(`Halaman_${i + 1}.pdf`, await subDoc.save());
+        const sub = await PDFLib.PDFDocument.create();
+        const [p] = await sub.copyPages(mainDoc, [i]);
+        sub.addPage(p);
+        zip.file(`Hal_${i + 1}.pdf`, await sub.save());
       }
-      const content = await zip.generateAsync({ type: "blob" });
-      download(content, "splitted_pdf.zip", "application/zip");
+      download(
+        await zip.generateAsync({ type: "blob" }),
+        "split.zip",
+        "application/zip",
+      );
     }
-    status.innerText = "✅ Berhasil!";
+    status.innerText = "✅ Selesai!";
   } catch (e) {
-    status.innerText = "❌ Gagal!";
+    status.innerText = "❌ Terjadi kesalahan.";
     console.error(e);
   }
   actionBtn.disabled = false;
 });
 
+// Helpers
 function download(data, name, type) {
-  const b = new Blob([data], { type });
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(b);
+  a.href = URL.createObjectURL(new Blob([data], { type }));
   a.download = name;
   a.click();
 }
-
-// UI Helpers (Theme & DragDrop)
 document.getElementById("theme-toggle").onclick = () => {
   const d = document.documentElement;
   d.setAttribute(
@@ -127,27 +158,16 @@ document.getElementById("theme-toggle").onclick = () => {
   );
 };
 const dz = document.getElementById("drop-zone");
-dz.addEventListener("dragover", (e) => {
+dz.ondragover = (e) => {
   e.preventDefault();
   dz.classList.add("highlight");
-});
-dz.addEventListener("dragleave", () => dz.classList.remove("highlight"));
-dz.addEventListener("drop", (e) => {
+};
+dz.ondragleave = () => dz.classList.remove("highlight");
+dz.ondrop = (e) => {
   e.preventDefault();
   dz.classList.remove("highlight");
   handleFiles(e.dataTransfer.files);
-});
+};
 document.getElementById("pdf-input").onchange = (e) =>
   handleFiles(e.target.files);
-
-new Sortable(fileListContainer, {
-  animation: 150,
-  onEnd: () => {
-    const order = Array.from(fileListContainer.children).map(
-      (li) => li.dataset.id,
-    );
-    filesArray.sort(
-      (a, b) => order.indexOf(a.tempId) - order.indexOf(b.tempId),
-    );
-  },
-});
+new Sortable(fileListContainer, { animation: 150 });
